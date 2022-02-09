@@ -1,7 +1,11 @@
 package senders_test
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -27,6 +31,22 @@ func TestMain(m *testing.M) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.Host, wfPort) {
 			if strings.HasSuffix(r.Header.Get("Authorization"), token) {
+				b, err := ioutil.ReadAll(r.Body)
+				if err != nil {
+					log.Fatalln(err)
+				}
+				defer r.Body.Close()
+				if r.Header.Get("Content-Type") == "application/octet-stream" {
+					gr, err := gzip.NewReader(bytes.NewBuffer(b))
+					defer gr.Close()
+					data, err := ioutil.ReadAll(gr)
+					if err != nil {
+						log.Fatalln(err)
+					}
+					println("GUNZIPPED: " + string(data))
+				} else {
+					println("PLAINTXT: " + string(b))
+				}
 				w.WriteHeader(http.StatusOK)
 				return
 			}
